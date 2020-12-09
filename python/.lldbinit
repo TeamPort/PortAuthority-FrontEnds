@@ -1,0 +1,4 @@
+command script import setup.py
+command script import step.py
+command script add -f setup.setup setup
+command script add -f step.steploop step
