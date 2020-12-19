@@ -14,10 +14,12 @@ def steploop(debugger, unused0, unused1, unused2):
   finishStart = module.FindSymbol("_fini").GetStartAddress().GetLoadAddress(target)
   finishEnd = module.FindSymbol("_fini").GetEndAddress().GetLoadAddress(target)
 
+  text = module.FindSection(".text")
+
   mnem = ""
   value = ""
   triple = target.GetPlatform().GetTriple()
-  replay = "{\"triple\":\""+ triple +"\",\"size\":" + str(module.FindSection(".text").GetByteSize()) + ",\"run\":["
+  replay = "var run = {\"triple\":\""+ triple +"\",\"size\":" + str(text.GetByteSize()) + ",\"run\":["
   while str(value) != "No value":
     frame = thread.GetFrameAtIndex(0)
     value = frame.FindRegister("pc")
@@ -33,11 +35,12 @@ def steploop(debugger, unused0, unused1, unused2):
       hexAddress = str(hex(value.GetValueAsUnsigned()))
       opcode = str(binascii.hexlify(bytes))[:instr.GetByteSize()*2]
       mnem = str(instr.GetMnemonic(target))
-      replay += "{\"address\":\"" + hexAddress + "\",\"opcode\":\"0x" + opcode +"\",\"mnem\":\"" + mnem +"\"},"
-      if (address >= tableAddress) and (address <= tableAddress + linkTable.GetByteSize()):
-        thread.StepOut()
-      else:
-        thread.StepInstruction(False)
+
+      #Eventually we need to compensate for non-runtime loaded dynamic libraries
+      if address >= text.GetLoadAddress(target) and address <= text.GetLoadAddress(target) + text.GetByteSize():
+        replay += "{\"address\":\"" + hexAddress + "\",\"opcode\":\"0x" + opcode +"\",\"mnem\":\"" + mnem +"\"},"
+
+      thread.StepInstruction(False)
 
   ndx = replay.rfind(",")
   replay = replay[:ndx] + "]}"
