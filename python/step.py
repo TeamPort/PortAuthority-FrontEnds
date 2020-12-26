@@ -1,6 +1,7 @@
 import lldb
 import binascii
 from datetime import datetime
+import os
 
 def dumpToFile(file, content):
   f = open(file, "w")
@@ -27,7 +28,7 @@ def steploop(debugger, unused0, unused1, unused2):
   mnem = ""
   value = ""
   triple = target.GetPlatform().GetTriple()
-  replay = "var run = {\"triple\":\""+ triple +"\",\"size\":" + str(text.GetByteSize()) + ",\"run\":[\n"
+  replay = "{\"triple\":\""+ triple +"\",\"size\":" + str(text.GetByteSize()) + ",\"run\":[\n"
   while str(value) != "No value":
     frame = thread.GetFrameAtIndex(0)
     value = frame.FindRegister("pc")
@@ -56,3 +57,15 @@ def steploop(debugger, unused0, unused1, unused2):
   ndx = replay.rfind(",")
   replay = replay[:ndx] + "]}"
   dumpToFile(stamp + "-" + str(fileIndex), replay)
+
+  temp = fileIndex
+  command = "cat "
+  while(temp >= 0):
+    command += stamp + "-" + str(temp) + " "
+    temp-=1
+
+  command += "| gzip > " + stamp + ".gz"
+  os.system(command)
+
+  command = "rm " + stamp + "-*"
+  os.system(command)
