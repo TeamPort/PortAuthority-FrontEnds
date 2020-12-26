@@ -414,7 +414,7 @@ int main(int argc, char** argv)
 
     char buffer[256];
     memset(buffer, '\0', 256);
-    sprintf(buffer, "var run = {\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
+    sprintf(buffer, "{\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
     gOutput.append(buffer);
 
     if(useGdb)
@@ -433,6 +433,30 @@ int main(int argc, char** argv)
     memset(buffer, '\0', 256);
     sprintf(buffer, "%s-%d", gStamp.str().c_str(), gFileNumber);
     dumpToFile(buffer, gOutput.c_str());
+
+    int32_t file = gFileNumber;
+    std::string command = "cat ";
+    while(file >= 0)
+    {
+        memset(buffer, '\0', 256);
+        sprintf(buffer, "%s-%d", gStamp.str().c_str(), file);
+        command.append(buffer);
+        command.append(" ");
+        file--;
+    }
+
+    command.append("| gzip > ");
+    memset(buffer, '\0', 256);
+    sprintf(buffer, "%s.gz", gStamp.str().c_str());
+    command.append(buffer);
+    system(command.c_str());
+
+    command.clear();
+    command = "rm ";
+    memset(buffer, '\0', 256);
+    sprintf(buffer, "%s-*", gStamp.str().c_str());
+    command.append(buffer);
+    system(command.c_str());
 
     delete instructionSet;
     instructionSet = nullptr;
