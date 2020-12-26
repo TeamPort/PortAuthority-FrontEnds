@@ -11,6 +11,8 @@
 
 #include <fstream>
 #include <sstream>
+#include <iomanip>
+#include <iostream>
 
 #include <libelf.h>
 
@@ -18,6 +20,16 @@
 #include "disavr.cpp"
 #include "disarm64.cpp"
 
+void dumpToFile(const char* file, const char* content)
+{
+    FILE* output = fopen(file, "w");
+    fwrite(content, strlen(content), 1, output);
+    fclose(output);
+}
+
+std::string gOutput;
+int32_t gFileNumber = 0;
+std::stringstream gStamp;
 char* subprocessCachedArgv[64];
 #include "native.cpp"
 #include "gdb.cpp"
@@ -397,7 +409,13 @@ int main(int argc, char** argv)
     parse(json, instructionSet);
     free(json);
 
-    printf("var run = {\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
+    time_t t = time(nullptr);
+    gStamp << std::put_time(std::localtime(&t), "%Y-%m-%d%X");
+
+    char buffer[256];
+    memset(buffer, '\0', 256);
+    sprintf(buffer, "var run = {\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
+    gOutput.append(buffer);
 
     if(useGdb)
     {
@@ -409,8 +427,12 @@ int main(int argc, char** argv)
     }
 
     // Dummy extra value to avoid complex last comma logic
-    printf("{\"address\":\"0x%lx\",\"opcode\":\"0x%lx\",\"mnem\":\"%s\"}", (uint64_t)0x0, (uint64_t)0, "NOP");
-    printf("]}");
+    memset(buffer, '\0', 256);
+    sprintf(buffer, "{\"address\":\"0x%lx\",\"opcode\":\"0x%lx\",\"mnem\":\"%s\"}]}", (uint64_t)0x0, (uint64_t)0, "NOP");
+    gOutput.append(buffer);
+    memset(buffer, '\0', 256);
+    sprintf(buffer, "%s-%d", gStamp.str().c_str(), gFileNumber);
+    dumpToFile(buffer, gOutput.c_str());
 
     delete instructionSet;
     instructionSet = nullptr;

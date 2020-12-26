@@ -117,6 +117,7 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
     uint8_t instructions[INSTRUCTION_LENGTH_MAX];
 
     uint64_t next = 0;
+    int32_t numLines = 0;
     bool fromBranch = false;
     uint32_t instructionCount = 0;
     while(WIFSTOPPED(status))
@@ -168,7 +169,19 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
             long ndx = arch->find(mnem);
             if(ndx != -1)
             {
-                printf("{\"address\":\"0x%lx\",\"opcode\":\"0x%x\",\"mnem\":\"%s\"},\n", instructionAddress, bswap_32(value), mnem);
+                char buffer[256];
+                memset(buffer, '\0', 256);
+                sprintf(buffer, "{\"address\":\"0x%lx\",\"opcode\":\"0x%x\",\"mnem\":\"%s\"},\n", instructionAddress, bswap_32(value), mnem);
+                gOutput.append(buffer);
+                numLines++;
+                if(numLines == 2000) {
+                    memset(buffer, '\0', 256);
+                    sprintf(buffer, "%s-%d", gStamp.str().c_str(), gFileNumber);
+                    dumpToFile(buffer, gOutput.c_str());
+                    gOutput.clear();
+                    numLines = 0;
+                    gFileNumber++;
+                }
 
                 const isa_instr* instruction = arch->get_instr(ndx);
                 isa_instr modified = *instruction;
