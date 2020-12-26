@@ -2,6 +2,11 @@ import lldb
 import binascii
 from datetime import datetime
 
+def dumpToFile(file, content):
+  f = open(file, "w")
+  f.write(content)
+  f.close()
+
 def steploop(debugger, unused0, unused1, unused2):
   target = debugger.GetSelectedTarget()
   process = target.GetProcess()
@@ -15,6 +20,9 @@ def steploop(debugger, unused0, unused1, unused2):
   finishEnd = module.FindSymbol("_fini").GetEndAddress().GetLoadAddress(target)
 
   text = module.FindSection(".text")
+
+  fileIndex = 0
+  stamp = str(datetime.now()).replace(' ','')
 
   mnem = ""
   value = ""
@@ -39,11 +47,12 @@ def steploop(debugger, unused0, unused1, unused2):
       #Eventually we need to compensate for non-runtime loaded dynamic libraries
       if address >= text.GetLoadAddress(target) and address <= text.GetLoadAddress(target) + text.GetByteSize():
         replay += "{\"address\":\"" + hexAddress + "\",\"opcode\":\"0x" + opcode +"\",\"mnem\":\"" + mnem +"\"},\n"
-
+        if len(replay.splitlines()) > 10000:
+          dumpToFile(stamp + "-" + str(fileIndex), replay)
+          replay = ""
+          fileIndex += 1
       thread.StepInstruction(False)
 
   ndx = replay.rfind(",")
   replay = replay[:ndx] + "]}"
-  f = open(str(datetime.now()).replace(' ',''), "w")
-  f.write(replay)
-  f.close()
+  dumpToFile(stamp + "-" + str(fileIndex), replay)
