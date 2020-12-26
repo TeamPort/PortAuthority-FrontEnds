@@ -174,7 +174,7 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
                 sprintf(buffer, "{\"address\":\"0x%lx\",\"opcode\":\"0x%x\",\"mnem\":\"%s\"},\n", instructionAddress, bswap_32(value), mnem);
                 gOutput.append(buffer);
                 numLines++;
-                if(numLines == 2000) {
+                if(numLines == 10000) {
                     memset(buffer, '\0', 256);
                     sprintf(buffer, "%s-%d", gStamp.str().c_str(), gFileNumber);
                     dumpToFile(buffer, gOutput.c_str());
