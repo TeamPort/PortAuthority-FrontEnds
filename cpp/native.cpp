@@ -168,7 +168,7 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
             long ndx = arch->find(mnem);
             if(ndx != -1)
             {
-                printf("{\"address\":\"0x%lx\",\"opcode\":\"0x%x\",\"mnem\":\"%s\"},", instructionAddress, bswap_32(value), mnem);
+                printf("{\"address\":\"0x%lx\",\"opcode\":\"0x%x\",\"mnem\":\"%s\"},\n", instructionAddress, bswap_32(value), mnem);
 
                 const isa_instr* instruction = arch->get_instr(ndx);
                 isa_instr modified = *instruction;

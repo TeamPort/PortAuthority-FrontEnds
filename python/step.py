@@ -19,7 +19,7 @@ def steploop(debugger, unused0, unused1, unused2):
   mnem = ""
   value = ""
   triple = target.GetPlatform().GetTriple()
-  replay = "var run = {\"triple\":\""+ triple +"\",\"size\":" + str(text.GetByteSize()) + ",\"run\":["
+  replay = "var run = {\"triple\":\""+ triple +"\",\"size\":" + str(text.GetByteSize()) + ",\"run\":[\n"
   while str(value) != "No value":
     frame = thread.GetFrameAtIndex(0)
     value = frame.FindRegister("pc")
@@ -38,7 +38,7 @@ def steploop(debugger, unused0, unused1, unused2):
 
       #Eventually we need to compensate for non-runtime loaded dynamic libraries
       if address >= text.GetLoadAddress(target) and address <= text.GetLoadAddress(target) + text.GetByteSize():
-        replay += "{\"address\":\"" + hexAddress + "\",\"opcode\":\"0x" + opcode +"\",\"mnem\":\"" + mnem +"\"},"
+        replay += "{\"address\":\"" + hexAddress + "\",\"opcode\":\"0x" + opcode +"\",\"mnem\":\"" + mnem +"\"},\n"
 
       thread.StepInstruction(False)
 

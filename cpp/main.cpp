@@ -397,7 +397,7 @@ int main(int argc, char** argv)
     parse(json, instructionSet);
     free(json);
 
-    printf("var run = {\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[", textSize);
+    printf("var run = {\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
 
     if(useGdb)
     {
