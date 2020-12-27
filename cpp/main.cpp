@@ -434,16 +434,19 @@ int main(int argc, char** argv)
     sprintf(buffer, "%s-%d", gStamp.str().c_str(), gFileNumber);
     dumpToFile(buffer, gOutput.c_str());
 
-    int32_t file = gFileNumber;
+    int32_t file = 0;
     std::string command = "cat ";
-    while(file >= 0)
+    while(file <= gFileNumber)
     {
         memset(buffer, '\0', 256);
         sprintf(buffer, "%s-%d", gStamp.str().c_str(), file);
         command.append(buffer);
         command.append(" ");
-        file--;
+        file++;
     }
+
+    const char* notify = "\e[93mCompressing result files\e[0m\n";
+    fwrite(notify, strlen(notify), 1, stderr);
 
     command.append("| gzip > ");
     memset(buffer, '\0', 256);
