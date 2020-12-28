@@ -410,6 +410,7 @@ int main(int argc, char** argv)
     free(json);
 
     time_t t = time(nullptr);
+    gStamp << "../../";
     gStamp << std::put_time(std::localtime(&t), "%Y-%m-%d%X");
 
     char buffer[256];
@@ -428,7 +429,7 @@ int main(int argc, char** argv)
 
     // Dummy extra value to avoid complex last comma logic
     memset(buffer, '\0', 256);
-    sprintf(buffer, "{\"address\":\"0x%lx\",\"opcode\":\"0x%lx\",\"mnem\":\"%s\"}]}", (uint64_t)0x0, (uint64_t)0, "NOP");
+    sprintf(buffer, "{\"a\":\"0x%lx\",\"o\":\"0x%lx\",\"m\":\"%s\"}]}", (uint64_t)0x0, (uint64_t)0, "NOP");
     gOutput.append(buffer);
     memset(buffer, '\0', 256);
     sprintf(buffer, "%s-%d", gStamp.str().c_str(), gFileNumber);
