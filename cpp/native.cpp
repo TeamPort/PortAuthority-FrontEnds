@@ -17,7 +17,9 @@ using namespace std::chrono;
 #define BREAK 0xCC //x86 breakpoint instruction
 #endif
 
-uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_t moduleBound, uint64_t exitAddress, uint64_t pltStart, uint64_t pltEnd, normal* arch)
+const int32_t MAX_FILES  = 1000;
+const int32_t MAX_LINES  = 12000;
+uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_t moduleBound, uint64_t exitAddress, uint64_t pltStart, uint64_t pltEnd, uint64_t textSize, normal* arch)
 {
     uint64_t moduleLow = 0;
     uint64_t moduleHigh = 0;
@@ -169,18 +171,39 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
             long ndx = arch->find(mnem);
             if(ndx != -1)
             {
-                char buffer[256];
-                memset(buffer, '\0', 256);
+                char buffer[SCRATCH_BUFFER_SIZE];
+                memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
                 sprintf(buffer, "{\"a\":\"0x%lx\",\"o\":\"0x%x\",\"m\":\"%s\"},\n", instructionAddress, bswap_32(value), mnem);
                 gOutput.append(buffer);
                 numLines++;
-                if(numLines == 10000) {
-                    memset(buffer, '\0', 256);
+
+                if(numLines == MAX_LINES) {
+                    if(gFileNumber == (MAX_FILES-1))
+                    {
+                        // Dummy extra value to avoid complex last comma logic
+                        memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+                        sprintf(buffer, "{\"a\":\"0x%lx\",\"o\":\"0x%lx\",\"m\":\"%s\"}]}", (uint64_t)0x0, (uint64_t)0, "NOP");
+                        gOutput.append(buffer);
+                    }
+
+                    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
                     sprintf(buffer, "%s-%d", gStamp.str().c_str(), gFileNumber);
                     dumpToFile(buffer, gOutput.c_str());
+
                     gOutput.clear();
                     numLines = 0;
                     gFileNumber++;
+                }
+
+                if(gFileNumber == MAX_FILES)
+                {
+                    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+                    sprintf(buffer, "%s_%d.gz", gStamp.str().c_str(), gArchiveNumber);
+                    dumpToArchive(buffer);
+
+                    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+                    sprintf(buffer, "{\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
+                    gOutput.append(buffer);
                 }
 
                 const isa_instr* instruction = arch->get_instr(ndx);

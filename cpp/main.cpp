@@ -27,9 +27,47 @@ void dumpToFile(const char* file, const char* content)
     fclose(output);
 }
 
-std::string gOutput;
 int32_t gFileNumber = 0;
 std::stringstream gStamp;
+int32_t gArchiveNumber = 0;
+const int32_t SCRATCH_BUFFER_SIZE = 256;
+void dumpToArchive(const char* fileName)
+{
+    char buffer[SCRATCH_BUFFER_SIZE];
+    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+
+    int32_t file = 0;
+    std::string command = "cat ";
+    while(file <= gFileNumber)
+    {
+        memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+        sprintf(buffer, "%s-%d", gStamp.str().c_str(), file);
+        command.append(buffer);
+        command.append(" ");
+        file++;
+    }
+
+    const char* notify = "\e[93mCompressing result files\e[0m\n";
+    fwrite(notify, strlen(notify), 1, stderr);
+
+    command.append("| gzip > ");
+    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+    sprintf(buffer, "%s", fileName);
+    command.append(buffer);
+    int result = system(command.c_str());
+
+    command.clear();
+    command = "rm ";
+    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+    sprintf(buffer, "%s-*", gStamp.str().c_str());
+    command.append(buffer);
+    result = system(command.c_str());
+
+    gFileNumber = 0;
+    gArchiveNumber++;
+}
+
+std::string gOutput;
 char* subprocessCachedArgv[64];
 #include "native.cpp"
 #include "gdb.cpp"
@@ -410,11 +448,10 @@ int main(int argc, char** argv)
     free(json);
 
     time_t t = time(nullptr);
-    gStamp << "../../";
     gStamp << std::put_time(std::localtime(&t), "%Y-%m-%d%X");
 
-    char buffer[256];
-    memset(buffer, '\0', 256);
+    char buffer[SCRATCH_BUFFER_SIZE];
+    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
     sprintf(buffer, "{\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
     gOutput.append(buffer);
 
@@ -424,43 +461,21 @@ int main(int argc, char** argv)
     }
     else
     {
-        profileNative(binaryPath, profilerAddress, moduleBound, exitAddress, pltStart, pltStart + pltSize, (normal*)instructionSet);
+        profileNative(binaryPath, profilerAddress, moduleBound, exitAddress, pltStart, pltStart + pltSize, textSize, (normal*)instructionSet);
     }
 
     // Dummy extra value to avoid complex last comma logic
-    memset(buffer, '\0', 256);
+    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
     sprintf(buffer, "{\"a\":\"0x%lx\",\"o\":\"0x%lx\",\"m\":\"%s\"}]}", (uint64_t)0x0, (uint64_t)0, "NOP");
     gOutput.append(buffer);
-    memset(buffer, '\0', 256);
+
+    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
     sprintf(buffer, "%s-%d", gStamp.str().c_str(), gFileNumber);
     dumpToFile(buffer, gOutput.c_str());
 
-    int32_t file = 0;
-    std::string command = "cat ";
-    while(file <= gFileNumber)
-    {
-        memset(buffer, '\0', 256);
-        sprintf(buffer, "%s-%d", gStamp.str().c_str(), file);
-        command.append(buffer);
-        command.append(" ");
-        file++;
-    }
-
-    const char* notify = "\e[93mCompressing result files\e[0m\n";
-    fwrite(notify, strlen(notify), 1, stderr);
-
-    command.append("| gzip > ");
-    memset(buffer, '\0', 256);
-    sprintf(buffer, "%s.gz", gStamp.str().c_str());
-    command.append(buffer);
-    system(command.c_str());
-
-    command.clear();
-    command = "rm ";
-    memset(buffer, '\0', 256);
-    sprintf(buffer, "%s-*", gStamp.str().c_str());
-    command.append(buffer);
-    system(command.c_str());
+    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+    sprintf(buffer, "%s_%d.gz", gStamp.str().c_str(), gArchiveNumber);
+    dumpToArchive(buffer);
 
     delete instructionSet;
     instructionSet = nullptr;
