@@ -20,18 +20,41 @@
 #include "disavr.cpp"
 #include "disarm64.cpp"
 
-void dumpToFile(const char* file, const char* content)
-{
-    FILE* output = fopen(file, "w");
-    fwrite(content, strlen(content), 1, output);
-    fclose(output);
-}
-
+std::string gOutput;
 int32_t gFileNumber = 0;
 std::stringstream gStamp;
 int32_t gArchiveNumber = 0;
 const int32_t SCRATCH_BUFFER_SIZE = 256;
-void dumpToArchive(const char* fileName)
+
+void dumpToFile(const char* content)
+{
+    char buffer[SCRATCH_BUFFER_SIZE];
+    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+    sprintf(buffer, "%s-%d", gStamp.str().c_str(), gFileNumber);
+
+    FILE* output = fopen(buffer, "w");
+    fwrite(content, strlen(content), 1, output);
+    fclose(output);
+}
+
+void writeHeader(uint64_t textSize)
+{
+    char buffer[SCRATCH_BUFFER_SIZE];
+    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+    sprintf(buffer, "{\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
+    gOutput.append(buffer);
+}
+
+void writeFooter()
+{
+    // Dummy extra value to avoid complex last comma logic
+    char buffer[SCRATCH_BUFFER_SIZE];
+    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+    sprintf(buffer, "{\"a\":\"0x%lx\",\"o\":\"0x%lx\",\"m\":\"%s\"}]}", (uint64_t)0x0, (uint64_t)0, "NOP");
+    gOutput.append(buffer);
+}
+
+void dumpToArchive()
 {
     char buffer[SCRATCH_BUFFER_SIZE];
     memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
@@ -52,7 +75,7 @@ void dumpToArchive(const char* fileName)
 
     command.append("| gzip > ");
     memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
-    sprintf(buffer, "%s", fileName);
+    sprintf(buffer, "%s_%d.gz", gStamp.str().c_str(), gArchiveNumber);
     command.append(buffer);
     int result = system(command.c_str());
 
@@ -67,7 +90,6 @@ void dumpToArchive(const char* fileName)
     gArchiveNumber++;
 }
 
-std::string gOutput;
 char* subprocessCachedArgv[64];
 #include "native.cpp"
 #include "gdb.cpp"
@@ -450,10 +472,7 @@ int main(int argc, char** argv)
     time_t t = time(nullptr);
     gStamp << std::put_time(std::localtime(&t), "%Y-%m-%d%X");
 
-    char buffer[SCRATCH_BUFFER_SIZE];
-    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
-    sprintf(buffer, "{\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
-    gOutput.append(buffer);
+    writeHeader(textSize);
 
     if(useGdb)
     {
@@ -464,18 +483,9 @@ int main(int argc, char** argv)
         profileNative(binaryPath, profilerAddress, moduleBound, exitAddress, pltStart, pltStart + pltSize, textSize, (normal*)instructionSet);
     }
 
-    // Dummy extra value to avoid complex last comma logic
-    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
-    sprintf(buffer, "{\"a\":\"0x%lx\",\"o\":\"0x%lx\",\"m\":\"%s\"}]}", (uint64_t)0x0, (uint64_t)0, "NOP");
-    gOutput.append(buffer);
-
-    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
-    sprintf(buffer, "%s-%d", gStamp.str().c_str(), gFileNumber);
-    dumpToFile(buffer, gOutput.c_str());
-
-    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
-    sprintf(buffer, "%s_%d.gz", gStamp.str().c_str(), gArchiveNumber);
-    dumpToArchive(buffer);
+    writeFooter();
+    dumpToFile(gOutput.c_str());
+    dumpToArchive();
 
     delete instructionSet;
     instructionSet = nullptr;

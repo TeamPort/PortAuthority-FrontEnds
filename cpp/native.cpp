@@ -177,18 +177,14 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
                 gOutput.append(buffer);
                 numLines++;
 
-                if(numLines == MAX_LINES) {
+                if(numLines == MAX_LINES)
+                {
                     if(gFileNumber == (MAX_FILES-1))
                     {
-                        // Dummy extra value to avoid complex last comma logic
-                        memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
-                        sprintf(buffer, "{\"a\":\"0x%lx\",\"o\":\"0x%lx\",\"m\":\"%s\"}]}", (uint64_t)0x0, (uint64_t)0, "NOP");
-                        gOutput.append(buffer);
+                        writeFooter();
                     }
 
-                    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
-                    sprintf(buffer, "%s-%d", gStamp.str().c_str(), gFileNumber);
-                    dumpToFile(buffer, gOutput.c_str());
+                    dumpToFile(gOutput.c_str());
 
                     gOutput.clear();
                     numLines = 0;
@@ -197,13 +193,8 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
 
                 if(gFileNumber == MAX_FILES)
                 {
-                    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
-                    sprintf(buffer, "%s_%d.gz", gStamp.str().c_str(), gArchiveNumber);
-                    dumpToArchive(buffer);
-
-                    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
-                    sprintf(buffer, "{\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
-                    gOutput.append(buffer);
+                    dumpToArchive();
+                    writeHeader(textSize);
                 }
 
                 const isa_instr* instruction = arch->get_instr(ndx);
