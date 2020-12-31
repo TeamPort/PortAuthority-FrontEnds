@@ -17,8 +17,8 @@ using namespace std::chrono;
 #define BREAK 0xCC //x86 breakpoint instruction
 #endif
 
-const int32_t MAX_FILES  = 1000;
-const int32_t MAX_LINES  = 12000;
+const int32_t MAX_FILES  = 1;
+const int32_t MAX_LINES  = 12000000;
 uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_t moduleBound, uint64_t exitAddress, uint64_t pltStart, uint64_t pltEnd, uint64_t textSize, normal* arch)
 {
     uint64_t moduleLow = 0;
