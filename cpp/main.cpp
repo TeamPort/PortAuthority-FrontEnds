@@ -193,6 +193,7 @@ int main(int argc, char** argv)
     const char* endFunction = "";
     uint64_t breakAddress = 0;
     uint64_t endAddress = 0;
+    int32_t hitcount = 1;
 
     char* subprocessStoragePointer = subprocessArgvStorage;
     binaryPath = cachedArgv[1];
@@ -216,6 +217,10 @@ int main(int argc, char** argv)
         else if(!strcmp(cachedArgv[arg], "--end-at-address"))
         {
             endAddress = strtol(cachedArgv[arg+1], NULL, 16);
+        }
+        else if(!strcmp(cachedArgv[arg], "--hit-count"))
+        {
+            hitcount = strtol(cachedArgv[arg+1], NULL, 10);
         }
         else if(!strcmp(cachedArgv[arg], "--arg"))
         {
@@ -480,7 +485,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        profileNative(binaryPath, profilerAddress, moduleBound, exitAddress, pltStart, pltStart + pltSize, textSize, (normal*)instructionSet);
+        profileNative(binaryPath, profilerAddress, moduleBound, exitAddress, pltStart, pltStart + pltSize, textSize, hitcount, (normal*)instructionSet);
     }
 
     writeFooter();

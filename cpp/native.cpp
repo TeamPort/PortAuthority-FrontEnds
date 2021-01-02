@@ -19,7 +19,7 @@ using namespace std::chrono;
 
 const int32_t MAX_FILES  = 1;
 const int32_t MAX_LINES  = 12000000;
-uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_t moduleBound, uint64_t exitAddress, uint64_t pltStart, uint64_t pltEnd, uint64_t textSize, normal* arch)
+uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_t moduleBound, uint64_t exitAddress, uint64_t pltStart, uint64_t pltEnd, const uint64_t textSize, const int32_t hitcount, normal* arch)
 {
     uint64_t moduleLow = 0;
     uint64_t moduleHigh = 0;
@@ -79,6 +79,24 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
     waitpid(pid, &status, WSTOPPED);
 
     clearBreakInstruction(pid, profilerAddress, data);
+    ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
+    waitpid(pid, &status, WSTOPPED);
+
+    ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
+    uint64_t ip = registers.rip;
+    int32_t count = hitcount-1;
+    while(count)
+    {
+        ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
+        waitpid(pid, &status, WSTOPPED);
+
+        ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
+        ip = registers.rip;
+        if(ip == profilerAddress)
+        {
+            count--;
+        }
+    }
 
     char modulesPath[32];
     sprintf(modulesPath,"/proc/%d/maps", pid);
