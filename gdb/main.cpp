@@ -28,21 +28,23 @@ void* processGdbLog()
     FILE* input = fopen("gdb.txt", "r");
 
     char line[256];
-    long highestAddress = 0x7FFFFFFF;
     while (fgets(line, sizeof(line), input))
     {
         if(strstr(line, "(gdb) 0x") != NULL)
         {
             long address = strtol(strstr(line, "0x"), NULL, 16);
-            if(address < highestAddress)
+            if(address < gConfig.moduleBound)
             {
-                printf("%lx\n", address);
+                const int32_t size = 16;
+                char mnem[size];
+//                disassemble(mnem, size, 0, gConfig.machine);
+                outputInstruction(address, 0, "");
             }
-        }
 
-        if(strstr(line, "_fini") != NULL)
-        {
-            break;
+            if(address == gConfig.exitAddress)
+            {
+                break;
+            }
         }
     }
 

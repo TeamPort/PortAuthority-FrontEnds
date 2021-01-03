@@ -17,8 +17,6 @@ using namespace std::chrono;
 #define BREAK 0xCC //x86 breakpoint instruction
 #endif
 
-const int32_t MAX_FILES  = 1;
-const int32_t MAX_LINES  = 12000000;
 uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_t moduleBound, uint64_t exitAddress, uint64_t pltStart, uint64_t pltEnd, const uint64_t textSize, const int32_t hitcount, normal* arch)
 {
     uint64_t moduleLow = 0;
@@ -137,7 +135,6 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
     uint8_t instructions[INSTRUCTION_LENGTH_MAX];
 
     uint64_t next = 0;
-    int32_t numLines = 0;
     bool fromBranch = false;
     uint32_t instructionCount = 0;
     while(WIFSTOPPED(status))
@@ -189,31 +186,7 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
             long ndx = arch->find(mnem);
             if(ndx != -1)
             {
-                char buffer[SCRATCH_BUFFER_SIZE];
-                memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
-                sprintf(buffer, "{\"a\":\"0x%lx\",\"o\":\"0x%x\",\"m\":\"%s\"},\n", instructionAddress, bswap_32(value), mnem);
-                gOutput.append(buffer);
-                numLines++;
-
-                if(numLines == MAX_LINES)
-                {
-                    if(gFileNumber == (MAX_FILES-1))
-                    {
-                        writeFooter();
-                    }
-
-                    dumpToFile(gOutput.c_str());
-
-                    gOutput.clear();
-                    numLines = 0;
-                    gFileNumber++;
-                }
-
-                if(gFileNumber == MAX_FILES)
-                {
-                    dumpToArchive();
-                    writeHeader(textSize);
-                }
+                outputInstruction(instructionAddress, bswap_32(value), mnem);
 
                 const isa_instr* instruction = arch->get_instr(ndx);
                 isa_instr modified = *instruction;

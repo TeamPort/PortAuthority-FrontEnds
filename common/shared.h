@@ -409,6 +409,37 @@ bool preamble(int argc, char** argv)
     return true;
 }
 
+int32_t numLines = 0;
+const int32_t MAX_FILES  = 1;
+const int32_t MAX_LINES  = 12000000;
+void outputInstruction(uint64_t instructionAddress, uint32_t value, const char* mnem)
+{
+    char buffer[SCRATCH_BUFFER_SIZE];
+    memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+    sprintf(buffer, "{\"a\":\"0x%lx\",\"o\":\"0x%x\",\"m\":\"%s\"},\n", instructionAddress, value, mnem);
+    gOutput.append(buffer);
+    numLines++;
+
+    if(numLines == MAX_LINES)
+    {
+        if(gFileNumber == (MAX_FILES-1))
+        {
+            writeFooter();
+        }
+
+        dumpToFile(gOutput.c_str());
+        gOutput.clear();
+        numLines = 0;
+        gFileNumber++;
+    }
+
+    if(gFileNumber == MAX_FILES)
+    {
+        dumpToArchive();
+        writeHeader(gConfig.textSize);
+    }
+}
+
 void cleanup()
 {
     writeFooter();
