@@ -3,8 +3,7 @@ SRC:= main.cpp
 DEBUG:=
 
 gdbfront: $(SRC)
-	$(CC) -Ofast -std=c++11 $(SRC) $(DEBUG) -o $@ -pthread
+	$(CC) -Ofast -lelf -std=c++11 $(SRC) $(DEBUG) -I../common/rapidjson/include -o $@ -pthread
 
 clean:
-	-@rm libudis86/libudis86.a
-	-@rm cfront
+	-@rm gdbfront

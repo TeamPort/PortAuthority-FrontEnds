@@ -8,6 +8,8 @@
 
 #include <sys/signal.h>
 
+#include "../common/shared.h"
+
 void* runProgram(void* arg)
 {
     const char* executable =  (const char*)arg;
@@ -21,8 +23,36 @@ void* runProgram(void* arg)
     int32_t error = system(command.c_str());
 }
 
+void* processGdbLog()
+{
+    FILE* input = fopen("gdb.txt", "r");
+
+    char line[256];
+    long highestAddress = 0x7FFFFFFF;
+    while (fgets(line, sizeof(line), input))
+    {
+        if(strstr(line, "(gdb) 0x") != NULL)
+        {
+            long address = strtol(strstr(line, "0x"), NULL, 16);
+            if(address < highestAddress)
+            {
+                printf("%lx\n", address);
+            }
+        }
+
+        if(strstr(line, "_fini") != NULL)
+        {
+            break;
+        }
+    }
+
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
+    if(!preamble(argc, argv)) return -1;
+
     remove("gdb.txt");
 
     pthread_t programThread;
@@ -69,6 +99,11 @@ int main(int argc, char** argv)
     memset(buffer, '\0', 1024);
     sprintf(buffer, "echo quit > /proc/%d/fd/0", pid);
     error = system(buffer);
+
+    processGdbLog();
+    remove("gdb.txt");
+
+    cleanup();
 
     return 0;
 }
