@@ -21,11 +21,11 @@ int main(int argc, char** argv)
 
     if(gConfig.useGdb)
     {
-        profileGdb(binaryPath, gConfig.machine, gConfig.profilerAddress, gConfig.moduleBound, gConfig.exitAddress, instructionSet);
+        profileGdb(binaryPath, gConfig, instructionSet);
     }
     else
     {
-        profileNative(binaryPath, gConfig.profilerAddress, gConfig.moduleBound, gConfig.exitAddress, gConfig.pltStart, gConfig.pltStart + gConfig.pltSize, gConfig.textSize, gConfig.hitcount, (normal*)instructionSet);
+        profileNative(binaryPath, gConfig, (normal*)instructionSet);
     }
 
     cleanup();

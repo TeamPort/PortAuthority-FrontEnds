@@ -17,7 +17,7 @@ using namespace std::chrono;
 #define BREAK 0xCC //x86 breakpoint instruction
 #endif
 
-uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_t moduleBound, uint64_t exitAddress, uint64_t pltStart, uint64_t pltEnd, const uint64_t textSize, const int32_t hitcount, normal* arch)
+uint32_t profileNative(const char* executable, config configuration, normal* arch)
 {
     uint64_t moduleLow = 0;
     uint64_t moduleHigh = 0;
@@ -70,19 +70,19 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
     //_start causes the process to stop
     waitpid(pid, &status, WSTOPPED);
 
-    long data = setBreakInstruction(pid, profilerAddress);
+    long data = setBreakInstruction(pid, configuration.profilerAddress);
 
     //run to break
     ptrace(PTRACE_CONT, pid, NULL, NULL);
     waitpid(pid, &status, WSTOPPED);
 
-    clearBreakInstruction(pid, profilerAddress, data);
+    clearBreakInstruction(pid, configuration.profilerAddress, data);
     ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
     waitpid(pid, &status, WSTOPPED);
 
     ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
     uint64_t ip = registers.rip;
-    int32_t count = hitcount-1;
+    int32_t count = configuration.hitcount-1;
     while(count)
     {
         ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
@@ -90,7 +90,7 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
 
         ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
         ip = registers.rip;
-        if(ip == profilerAddress)
+        if(ip == configuration.profilerAddress)
         {
             count--;
         }
@@ -147,13 +147,13 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
         ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
         instructionAddress = registers.rip;
 #endif
-        if(instructionAddress == exitAddress)
+        if(instructionAddress == configuration.exitAddress)
         {
             //natural program termination
             break;
         }
         //need better protections here for code that does not exit cleanly, without exit()
-        if(instructionAddress < moduleBound)
+        if(instructionAddress < configuration.moduleBound)
         {
             uint64_t value = ptrace(PTRACE_PEEKDATA, pid, instructionAddress, nullptr);
             if(!transition)
@@ -166,7 +166,7 @@ uint32_t profileNative(const char* executable, uint64_t profilerAddress, uint64_
             }
             transition = true;
 
-            if(shouldSkip(instructionAddress, next, value, pltStart, pltEnd))
+            if(shouldSkip(instructionAddress, next, value, configuration.pltStart, configuration.pltStart + configuration.pltSize))
             {
                 uint64_t value = setBreakInstruction(pid, next);
 

@@ -79,7 +79,7 @@ bool packetWrite(int fd, uint32_t& address, const char* replay)
     return packetRead(fd, address);
 }
 
-uint32_t profileGdb(const char* executable, uint8_t machine, uint64_t profilerAddress, uint64_t moduleBound, uint64_t exitAddress, isa* arch)
+uint32_t profileGdb(const char* executable, config configuration, isa* arch)
 {
     avr_isa& instructionSet = (avr_isa&)(*arch);
 
@@ -90,9 +90,9 @@ uint32_t profileGdb(const char* executable, uint8_t machine, uint64_t profilerAd
     if(fd == 0)
         return 0;
 
-    gMachine = machine;
+    gMachine = configuration.machine;
     socketAddress.sin_family = AF_INET;
-    if(machine == EM_AVR)
+    if(configuration.machine == EM_AVR)
     {
         socketAddress.sin_addr.s_addr = INADDR_ANY;
     }
@@ -107,7 +107,7 @@ uint32_t profileGdb(const char* executable, uint8_t machine, uint64_t profilerAd
         return 0;
 
     uint32_t address = 0;
-    if(machine == EM_AVR)
+    if(configuration.machine == EM_AVR)
     {
         //replay sniffed initialization packets
         packetWrite(fd, address, "+$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+#c9");
@@ -141,7 +141,7 @@ uint32_t profileGdb(const char* executable, uint8_t machine, uint64_t profilerAd
         packetWrite(fd, address, "+$qAttached#8f");
         packetWrite(fd, address, "+$Hc-1#09");
         packetWrite(fd, address, "+$qOffsets#4b");
-        if(machine == EM_ARM)
+        if(configuration.machine == EM_ARM)
         {
             packetWrite(fd, address, "+$G00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b0f7feff0000000014230100100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000#99");
 //arm-none-eabi
@@ -165,7 +165,7 @@ uint32_t profileGdb(const char* executable, uint8_t machine, uint64_t profilerAd
     uint32_t instructionCount = 0;
 
     bool keepGoing = false;
-    if(machine == EM_AVR)
+    if(configuration.machine == EM_AVR)
     {
         keepGoing = packetWrite(fd, address, "+$s#73");
     }
@@ -175,7 +175,7 @@ uint32_t profileGdb(const char* executable, uint8_t machine, uint64_t profilerAd
     }
     while(keepGoing)
     {
-        if(address < moduleBound)
+        if(address < configuration.moduleBound)
         {
             uint8_t size = 16;
             char buffer[size];
@@ -196,7 +196,7 @@ uint32_t profileGdb(const char* executable, uint8_t machine, uint64_t profilerAd
             sprintf(buffer, "+$m%x,4#%x\n", address, checksum%256);
 
             const isa_instr* instruction = instructionSet.get_instr(0);
-            if(machine == EM_AVR)
+            if(configuration.machine == EM_AVR)
             {
                 packetWrite(fd, opcode, buffer);
                 ndx = instructionSet.find(avr_decode(opcode));
@@ -210,7 +210,7 @@ uint32_t profileGdb(const char* executable, uint8_t machine, uint64_t profilerAd
                     break;
                 }
             }
-            else if(machine != EM_AVR)
+            else if(configuration.machine != EM_AVR)
             {
                 isa_instr dummy = *instruction;
                 dummy.m_size = 4;
@@ -222,7 +222,7 @@ uint32_t profileGdb(const char* executable, uint8_t machine, uint64_t profilerAd
             instructionCount++;
         }
         sched_yield();
-        if(machine == EM_AVR)
+        if(configuration.machine == EM_AVR)
         {
             keepGoing = packetWrite(fd, address, "+$s#73");
         }
