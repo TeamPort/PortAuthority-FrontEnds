@@ -1,5 +1,4 @@
 #include <spawn.h>
-#include <udis86.h>
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <sys/ptrace.h>

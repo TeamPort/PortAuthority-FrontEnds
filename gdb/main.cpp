@@ -37,8 +37,8 @@ void* processGdbLog()
             {
                 const int32_t size = 16;
                 char mnem[size];
-//                disassemble(mnem, size, 0, gConfig.machine);
-                outputInstruction(address, 0, "");
+                disassemble(mnem, size, 0, gConfig.machine);
+                outputInstruction(address, 0, mnem);
             }
 
             if(address == gConfig.exitAddress)
