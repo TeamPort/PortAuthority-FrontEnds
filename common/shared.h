@@ -402,6 +402,7 @@ bool preamble(int argc, char** argv)
     free(json);
 
     time_t t = time(nullptr);
+    gStamp << "../../../";
     gStamp << std::put_time(std::localtime(&t), "%Y-%m-%d%X");
 
     writeHeader(gConfig.textSize);

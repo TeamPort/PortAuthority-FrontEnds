@@ -89,7 +89,7 @@ int main(int argc, char** argv)
     memset(buffer, '\0', 1024);
     sprintf(buffer, "echo si > /proc/%d/fd/0", pid);
 
-    int32_t count = 12000;
+    int32_t count = 2500000;
     while(count--)
     {
         error = system(buffer);
