@@ -280,10 +280,11 @@ bool preamble(int argc, char** argv)
         ndx = 0;
         numHeaders = totalHeaders;
 
-        int32_t init        = getIndexForString(binary, sect.si[stringsIndex], ".init");
-        int32_t text        = getIndexForString(binary, sect.si[stringsIndex], ".text");
-        int32_t symbolTable = getIndexForString(binary, sect.si[stringsIndex], ".symtab");
-        int32_t stringTable = getIndexForString(binary, sect.si[stringsIndex], ".strtab");
+        sectionInfo info = sect.si[stringsIndex];
+        int32_t init        = getIndexForString(binary, info.size, info.offset, ".init");
+        int32_t text        = getIndexForString(binary, info.size, info.offset, ".text");
+        int32_t symbolTable = getIndexForString(binary, info.size, info.offset, ".symtab");
+        int32_t stringTable = getIndexForString(binary, info.size, info.offset, ".strtab");
 
         while(numHeaders--)
         {
@@ -343,7 +344,9 @@ bool preamble(int argc, char** argv)
             {
                 highestAddress = highestAddress < address ? address: highestAddress;
                 highestAddress += symbolSize;
-                getStringForIndex(binary, sect.si[stringTableIndex], name, buffer, 256);
+
+                sectionInfo info = sect.si[stringTableIndex];
+                getStringForIndex(binary, info.size, info.offset, name, buffer, 256);
 
                 if(breakAddress == 0 && !strcmp(breakFunction, buffer))
                 {
