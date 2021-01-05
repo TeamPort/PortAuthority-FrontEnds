@@ -104,7 +104,7 @@ void dumpToArchive()
 
 #include "parser.cpp"
 #include "disavr.cpp"
-#include "disarm64.cpp"
+#include "disarm64.c"
 
 isa* instructionSet = nullptr;
 char* subprocessStoragePointer = nullptr;
