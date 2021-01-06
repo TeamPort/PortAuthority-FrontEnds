@@ -4,9 +4,17 @@ from datetime import datetime
 import os
 
 def dumpToFile(file, content):
-  f = open(file, "w")
+  ndx = content.rfind(",")
+  content = content[:ndx] + "]}"
+  f = open(file + "-0", "w")
   f.write(content)
   f.close()
+
+def dumpToArchive(file, ndx):
+  command = "cat " + file + "-0 " + "| gzip > " + file + "_" + str(ndx) + ".gz"
+  os.system(command)
+  command = "rm " + file + "-0"
+  os.system(command)
 
 def steploop(debugger, unused0, unused1, unused2):
   target = debugger.GetSelectedTarget()
@@ -48,24 +56,13 @@ def steploop(debugger, unused0, unused1, unused2):
       #Eventually we need to compensate for non-runtime loaded dynamic libraries
       if address >= text.GetLoadAddress(target) and address <= text.GetLoadAddress(target) + text.GetByteSize():
         replay += "{\"address\":\"" + hexAddress + "\",\"opcode\":\"0x" + opcode +"\",\"mnem\":\"" + mnem +"\"},\n"
-        if len(replay.splitlines()) > 10000:
-          dumpToFile(stamp + "-" + str(fileIndex), replay)
-          replay = ""
+        if len(replay.splitlines()) > 48000:
+          dumpToFile(stamp, replay)
+          replay = "{\"triple\":\""+ triple +"\",\"size\":" + str(text.GetByteSize()) + ",\"run\":[\n"
+          dumpToArchive(stamp, fileIndex)
           fileIndex += 1
       thread.StepInstruction(False)
 
-  ndx = replay.rfind(",")
-  replay = replay[:ndx] + "]}"
-  dumpToFile(stamp + "-" + str(fileIndex), replay)
+  dumpToFile(stamp, replay)
+  dumpToArchive(stamp, fileIndex)
 
-  temp = fileIndex
-  command = "cat "
-  while(temp >= 0):
-    command += stamp + "-" + str(temp) + " "
-    temp-=1
-
-  command += "| gzip > " + stamp + ".gz"
-  os.system(command)
-
-  command = "rm " + stamp + "-*"
-  os.system(command)
