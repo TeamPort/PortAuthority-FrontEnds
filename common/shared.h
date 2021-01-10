@@ -320,7 +320,7 @@ bool preamble(int argc, char** argv)
         uint64_t highestAddress = 0;
         int32_t symbols = sect.si[symbolsIndex].size / (headerSize == sizeof(Elf64_Shdr) ? sizeof(Elf64_Sym): sizeof(Elf32_Sym));  
 
-        char buffer[256];
+        char buffer[2048];
         while(symbols--)
         {
             if(headerSize == sizeof(Elf64_Shdr))
