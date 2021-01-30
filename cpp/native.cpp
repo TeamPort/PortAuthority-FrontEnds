@@ -98,7 +98,7 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
 #if defined( __aarch64__)
         ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
         ip = registers.pc;
-#elif
+#else
         ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
         ip = registers.rip;
 #endif
@@ -112,7 +112,7 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
 #if defined( __aarch64__)
             ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
             ip = registers.pc;
-#elif
+#else
             ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
             ip = registers.rip;
 #endif
