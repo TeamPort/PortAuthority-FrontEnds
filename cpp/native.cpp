@@ -94,8 +94,13 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                 break;
             }
 
+            if(instructionAddress < configuration.moduleBound)
+            {
+                instructionCount++;
+            }
+
             system_clock::time_point start = system_clock::now();
-            system_clock::time_point sync = start + microseconds(2);
+            system_clock::time_point sync = start + nanoseconds(2000);
             ptrace(PTRACE_CONT, pid, NULL, NULL);
             system_clock::time_point now = system_clock::now();
             while(now < sync)
