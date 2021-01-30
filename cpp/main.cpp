@@ -25,7 +25,13 @@ int main(int argc, char** argv)
     }
     else
     {
-        profileNative(binaryPath, gConfig, (normal*)instructionSet);
+        uint64_t instructions = profileNative(binaryPath, gConfig, (normal*)instructionSet);
+        if(gConfig.sampling)
+        {
+            const int32_t BOGOMIPS = 5600;
+            const float INSTRUCTIONS_PER_SAMPLE = (BOGOMIPS*2)/2.8f;
+//            printf("%.0f %.0f\n", instructions*INSTRUCTIONS_PER_SAMPLE, INSTRUCTIONS_PER_SAMPLE);
+        }
     }
 
     cleanup();
