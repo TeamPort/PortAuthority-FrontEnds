@@ -94,16 +94,29 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
         ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
         waitpid(pid, &status, WSTOPPED);
 
+        uint64_t ip = 0;
+#if defined( __aarch64__)
+        ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
+        ip = registers.pc;
+#elif
         ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
-        uint64_t ip = registers.rip;
+        ip = registers.rip;
+#endif
+
         int32_t count = configuration.hitcount-1;
         while(count)
         {
             ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
             waitpid(pid, &status, WSTOPPED);
 
+#if defined( __aarch64__)
+            ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
+            ip = registers.pc;
+#elif
             ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
             ip = registers.rip;
+#endif
+
             if(ip == configuration.profilerAddress)
             {
                 count--;
