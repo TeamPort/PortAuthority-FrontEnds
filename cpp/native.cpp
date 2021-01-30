@@ -62,70 +62,6 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
 
     microseconds startProfile = duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch());
 
-    ptrace(PTRACE_ATTACH, pid, NULL, NULL);
-    waitpid(pid, &status, WSTOPPED);
-
-    ptrace(PTRACE_CONT, pid, NULL, NULL);
-    //_start causes the process to stop
-    waitpid(pid, &status, WSTOPPED);
-
-    long data = setBreakInstruction(pid, configuration.profilerAddress);
-
-    //run to break
-    ptrace(PTRACE_CONT, pid, NULL, NULL);
-    waitpid(pid, &status, WSTOPPED);
-
-    clearBreakInstruction(pid, configuration.profilerAddress, data);
-    ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
-    waitpid(pid, &status, WSTOPPED);
-
-    ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
-    uint64_t ip = registers.rip;
-    int32_t count = configuration.hitcount-1;
-    while(count)
-    {
-        ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
-        waitpid(pid, &status, WSTOPPED);
-
-        ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
-        ip = registers.rip;
-        if(ip == configuration.profilerAddress)
-        {
-            count--;
-        }
-    }
-
-    char modulesPath[32];
-    sprintf(modulesPath,"/proc/%d/maps", pid);
-
-    char* line = nullptr;
-    FILE* modules = fopen(modulesPath, "r");
-    if(modules)
-    {
-        size_t length = 0;
-        while(getline(&line, &length, modules) != -1)
-        {
-            string module(line);
-            if(module.find("libopencv_core") != -1)
-            {
-                char* token = strtok(line, " ");
-                token = strtok(nullptr, " ");
-                if(strchr(token, 'x') != nullptr) //executable permission
-                {
-                    char range[64];
-                    token = strtok(line, " ");
-                    strcpy(range, token);
-                    range[strlen(token)] = '\0';
-                    token = strtok(range, "-");
-                    moduleLow = strtoll(token, nullptr, 16);
-                    token = strtok(nullptr, "-");
-                    moduleHigh = strtoll(token, nullptr, 16);
-                    break;
-                }
-            }
-        }
-    }
-
     ud_t u;
     ud_init(&u);
     ud_set_syntax(&u, UD_SYN_ATT);
@@ -136,93 +72,187 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
     uint64_t next = 0;
     bool fromBranch = false;
     uint32_t instructionCount = 0;
-    while(WIFSTOPPED(status))
+
+    bool sampling = false;
+
+    if(!sampling)
     {
-        uint64_t instructionAddress = 0;
-#if defined( __aarch64__)
-        ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
-        instructionAddress = registers.pc;
-#else
+        ptrace(PTRACE_ATTACH, pid, NULL, NULL);
+        waitpid(pid, &status, WSTOPPED);
+
+        ptrace(PTRACE_CONT, pid, NULL, NULL);
+        //_start causes the process to stop
+        waitpid(pid, &status, WSTOPPED);
+
+        long data = setBreakInstruction(pid, configuration.profilerAddress);
+
+        //run to break
+        ptrace(PTRACE_CONT, pid, NULL, NULL);
+        waitpid(pid, &status, WSTOPPED);
+
+        clearBreakInstruction(pid, configuration.profilerAddress, data);
+        ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
+        waitpid(pid, &status, WSTOPPED);
+
         ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
-        instructionAddress = registers.rip;
-#endif
-        if(instructionAddress == configuration.exitAddress)
+        uint64_t ip = registers.rip;
+        int32_t count = configuration.hitcount-1;
+        while(count)
         {
-            //natural program termination
-            break;
-        }
-        //need better protections here for code that does not exit cleanly, without exit()
-        if(instructionAddress < configuration.moduleBound)
-        {
-            uint64_t value = ptrace(PTRACE_PEEKDATA, pid, instructionAddress, nullptr);
-            if(!transition)
+            ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
+            waitpid(pid, &status, WSTOPPED);
+
+            ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
+            ip = registers.rip;
+            if(ip == configuration.profilerAddress)
             {
-                if(startTransition != endTransition)
+                count--;
+            }
+        }
+
+        char modulesPath[32];
+        sprintf(modulesPath,"/proc/%d/maps", pid);
+
+        char* line = nullptr;
+        FILE* modules = fopen(modulesPath, "r");
+        if(modules)
+        {
+            size_t length = 0;
+            while(getline(&line, &length, modules) != -1)
+            {
+                string module(line);
+                if(module.find("libopencv_core") != -1)
                 {
-                    endTransition = duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch());
-                    untracked += endTransition-startTransition;
+                    char* token = strtok(line, " ");
+                    token = strtok(nullptr, " ");
+                    if(strchr(token, 'x') != nullptr) //executable permission
+                    {
+                        char range[64];
+                        token = strtok(line, " ");
+                        strcpy(range, token);
+                        range[strlen(token)] = '\0';
+                        token = strtok(range, "-");
+                        moduleLow = strtoll(token, nullptr, 16);
+                        token = strtok(nullptr, "-");
+                        moduleHigh = strtoll(token, nullptr, 16);
+                        break;
+                    }
                 }
             }
-            transition = true;
+        }
 
-            if(shouldSkip(instructionAddress, next, value, configuration.pltStart, configuration.pltStart + configuration.pltSize))
+        while(WIFSTOPPED(status))
+        {
+            uint64_t instructionAddress = 0;
+#if defined( __aarch64__)
+            ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
+            instructionAddress = registers.pc;
+#else
+            ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
+            instructionAddress = registers.rip;
+#endif
+            if(instructionAddress == configuration.exitAddress)
             {
-                uint64_t value = setBreakInstruction(pid, next);
-
-                //run to break
-                ptrace(PTRACE_CONT, pid, NULL, NULL);
-                waitpid(pid, &status, WSTOPPED);
-
-                clearBreakInstruction(pid, next, value);
+                //natural program termination
+                break;
             }
-
-            const int32_t size = 16;
-            char mnem[size];
-            uint8_t byte = disassemble(mnem, size, value, machine);
-            next = instructionAddress + byte;
-            fromBranch = strstr("BLR", mnem) != nullptr;
-
-            long ndx = arch->find(mnem);
-            if(ndx != -1)
+            //need better protections here for code that does not exit cleanly, without exit()
+            if(instructionAddress < configuration.moduleBound)
             {
-                outputInstruction(instructionAddress, bswap_32(value), mnem);
+                uint64_t value = ptrace(PTRACE_PEEKDATA, pid, instructionAddress, nullptr);
+                if(!transition)
+                {
+                    if(startTransition != endTransition)
+                    {
+                        endTransition = duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch());
+                        untracked += endTransition-startTransition;
+                    }
+                }
+                transition = true;
 
-                const isa_instr* instruction = arch->get_instr(ndx);
-                isa_instr modified = *instruction;
-                modified.m_size = byte;
+                if(shouldSkip(instructionAddress, next, value, configuration.pltStart, configuration.pltStart + configuration.pltSize))
+                {
+                    uint64_t value = setBreakInstruction(pid, next);
+
+                    //run to break
+                    ptrace(PTRACE_CONT, pid, NULL, NULL);
+                    waitpid(pid, &status, WSTOPPED);
+
+                    clearBreakInstruction(pid, next, value);
+                }
+
+                const int32_t size = 16;
+                char mnem[size];
+                uint8_t byte = disassemble(mnem, size, value, machine);
+                next = instructionAddress + byte;
+                fromBranch = strstr("BLR", mnem) != nullptr;
+
+                long ndx = arch->find(mnem);
+                if(ndx != -1)
+                {
+                    outputInstruction(instructionAddress, bswap_32(value), mnem);
+
+                    const isa_instr* instruction = arch->get_instr(ndx);
+                    isa_instr modified = *instruction;
+                    modified.m_size = byte;
+                }
+                else
+                {
+                    //printf("Not found: %s\n", mnem);
+                }
+                instructionCount++;
             }
             else
             {
-                //printf("Not found: %s\n", mnem);
+                if(transition)
+                {
+                    startTransition = duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch());
+                }
+                transition = false;
+
+                if(fromBranch)
+                {
+                    uint64_t value = setBreakInstruction(pid, next);
+
+                    //run to break
+                    ptrace(PTRACE_CONT, pid, NULL, NULL);
+                    waitpid(pid, &status, WSTOPPED);
+
+                    clearBreakInstruction(pid, next, value);
+                }
+
+                if(instructionAddress >= moduleLow && instructionAddress <= moduleHigh)
+                {
+                }
             }
-            instructionCount++;
+
+            ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
+            waitpid(pid, &status, WSTOPPED);
         }
-        else
-        {
-            if(transition)
-            {
-                startTransition = duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch());
-            }
-            transition = false;
-
-            if(fromBranch)
-            {
-                uint64_t value = setBreakInstruction(pid, next);
-
-                //run to break
-                ptrace(PTRACE_CONT, pid, NULL, NULL);
-                waitpid(pid, &status, WSTOPPED);
-
-                clearBreakInstruction(pid, next, value);
-            }
-
-            if(instructionAddress >= moduleLow && instructionAddress <= moduleHigh)
-            {
-            }
-        }
-
-        ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
+    } else {
+        ptrace(PTRACE_SEIZE, pid, NULL, NULL);
+        ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
         waitpid(pid, &status, WSTOPPED);
+        while(WIFSTOPPED(status))
+        {
+            uint64_t instructionAddress = 0;
+#if defined( __aarch64__)
+            ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
+            instructionAddress = registers.pc;
+#else
+            ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
+            instructionAddress = registers.rip;
+#endif
+            if(instructionAddress == configuration.exitAddress)
+            {
+                //natural program termination
+                break;
+            }
+            ptrace(PTRACE_CONT, pid, NULL, NULL);
+            usleep(1); // Sampling rate
+            ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
+            waitpid(pid, &status, WSTOPPED);
+        }
     }
 
     kill(pid, SIGKILL);
