@@ -8,6 +8,9 @@
 #include <udis86.h>
 #include "localelf.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 char* subprocessCachedArgv[64];
 
 int32_t cachedArgc = 0;
@@ -37,6 +40,7 @@ int32_t gFileNumber = 0;
 std::stringstream gStamp;
 int32_t gArchiveNumber = 0;
 const int32_t SCRATCH_BUFFER_SIZE = 256;
+const char* RESULTS_DIR = ".";
 
 void dumpToFile(const char* content)
 {
@@ -85,9 +89,11 @@ void dumpToArchive()
     const char* notify = "\e[93mCompressing result files\e[0m\n";
     fwrite(notify, strlen(notify), 1, stderr);
 
+    mkdir(RESULTS_DIR, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+
     command.append("| gzip > ");
     memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
-    sprintf(buffer, "%s_%d.gz", gStamp.str().c_str(), gArchiveNumber);
+    sprintf(buffer, "%s/%s_%d.gz", RESULTS_DIR, gStamp.str().c_str(), gArchiveNumber);
     command.append(buffer);
     int result = system(command.c_str());
 
@@ -131,6 +137,7 @@ bool preamble(int argc, char** argv)
 
     const char* breakFunction = "";
     const char* endFunction = "";
+    const char* resultDir = "";
     uint64_t breakAddress = 0;
     uint64_t endAddress = 0;
 
@@ -145,6 +152,10 @@ bool preamble(int argc, char** argv)
         else if(!strcmp(cachedArgv[arg], "--end"))
         {
             endFunction = cachedArgv[arg+1];
+        }
+        else if(!strcmp(cachedArgv[arg], "--result"))
+        {
+            RESULTS_DIR = cachedArgv[arg+1];
         }
         else if(!strcmp(cachedArgv[arg], "--break-at-address"))
         {
