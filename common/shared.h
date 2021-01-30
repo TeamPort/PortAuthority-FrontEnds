@@ -23,6 +23,7 @@ char subprocessArgvStorage[1024];
 struct config
 {
     bool useGdb = false;
+    bool sampling = false;
     int32_t hitcount = 1;
     uint8_t machine = 0;
     uint64_t pltSize = 0;
@@ -156,6 +157,10 @@ bool preamble(int argc, char** argv)
         else if(!strcmp(cachedArgv[arg], "--result"))
         {
             RESULTS_DIR = cachedArgv[arg+1];
+        }
+        else if(!strcmp(cachedArgv[arg], "--sample"))
+        {
+            gConfig.sampling = true;
         }
         else if(!strcmp(cachedArgv[arg], "--break-at-address"))
         {

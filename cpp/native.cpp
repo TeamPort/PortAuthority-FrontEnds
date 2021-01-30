@@ -73,9 +73,41 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
     bool fromBranch = false;
     uint32_t instructionCount = 0;
 
-    bool sampling = false;
+    if(configuration.sampling)
+    {
+        ptrace(PTRACE_SEIZE, pid, NULL, NULL);
+        ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
+        waitpid(pid, &status, WSTOPPED);
+        while(WIFSTOPPED(status))
+        {
+            uint64_t instructionAddress = 0;
+#if defined( __aarch64__)
+            ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
+            instructionAddress = registers.pc;
+#else
+            ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
+            instructionAddress = registers.rip;
+#endif
+            if(instructionAddress == configuration.exitAddress)
+            {
+                //natural program termination
+                break;
+            }
 
-    if(!sampling)
+            system_clock::time_point start = system_clock::now();
+            system_clock::time_point sync = start + microseconds(2);
+            ptrace(PTRACE_CONT, pid, NULL, NULL);
+            system_clock::time_point now = system_clock::now();
+            while(now < sync)
+            {
+                now = system_clock::now();
+            }
+
+            ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
+            waitpid(pid, &status, WSTOPPED);
+        }
+    }
+    else
     {
         ptrace(PTRACE_ATTACH, pid, NULL, NULL);
         waitpid(pid, &status, WSTOPPED);
@@ -240,30 +272,6 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
             }
 
             ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
-            waitpid(pid, &status, WSTOPPED);
-        }
-    } else {
-        ptrace(PTRACE_SEIZE, pid, NULL, NULL);
-        ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
-        waitpid(pid, &status, WSTOPPED);
-        while(WIFSTOPPED(status))
-        {
-            uint64_t instructionAddress = 0;
-#if defined( __aarch64__)
-            ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
-            instructionAddress = registers.pc;
-#else
-            ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
-            instructionAddress = registers.rip;
-#endif
-            if(instructionAddress == configuration.exitAddress)
-            {
-                //natural program termination
-                break;
-            }
-            ptrace(PTRACE_CONT, pid, NULL, NULL);
-            usleep(1); // Sampling rate
-            ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
             waitpid(pid, &status, WSTOPPED);
         }
     }
