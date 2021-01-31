@@ -34,14 +34,20 @@ int main(int argc, char** argv)
         uint64_t instructions = profileNative(binaryPath, gConfig, (normal*)instructionSet);
         if(gConfig.sampling)
         {
+            char buffer[128];
+            memset(buffer, '\0', 128);
+            FILE* f = popen("cat /proc/cpuinfo | grep -i bogomips", "r");
+            if(fgets(buffer, sizeof(buffer), f) == nullptr) return -1;
+            pclose(f);
+
+            float mips = atof(strstr(buffer, ":") + 1);
+
 #ifndef __aarch64__
-            const float BOGOMIPS = 5600;
             const float CYCLES_PER_INSTRUCTION = 2.8f;
 #else
-            const float BOGOMIPS = 62.5;
             const float CYCLES_PER_INSTRUCTION = 1.2f;
 #endif
-            const float INSTRUCTIONS_PER_SAMPLE = (BOGOMIPS*SAMPLE_INTERVAL_IN_MICROSECONDS)/CYCLES_PER_INSTRUCTION;
+            const float INSTRUCTIONS_PER_SAMPLE = (mips*SAMPLE_INTERVAL_IN_MICROSECONDS)/CYCLES_PER_INSTRUCTION;
 //            printf("%.0f %.0f\n", instructions*INSTRUCTIONS_PER_SAMPLE, INSTRUCTIONS_PER_SAMPLE);
         }
     }
