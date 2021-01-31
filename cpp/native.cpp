@@ -100,7 +100,7 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
             }
 
             system_clock::time_point start = system_clock::now();
-            system_clock::time_point sync = start + nanoseconds(2000);
+            system_clock::time_point sync = start + nanoseconds(SAMPLE_INTERVAL_IN_MICROSECONDS*1000);
             ptrace(PTRACE_CONT, pid, NULL, NULL);
             system_clock::time_point now = system_clock::now();
             while(now < sync)
