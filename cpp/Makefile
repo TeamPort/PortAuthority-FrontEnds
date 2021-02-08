@@ -1,5 +1,5 @@
 CC:= g++
-SRC:= main.cpp
+SRC:= main.cpp ../common/demangle/cp-demangle.c
 DEBUG:=
 
 cfront: $(SRC) ../common/libudis86/libudis86.a

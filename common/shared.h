@@ -11,6 +11,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+extern "C"
+{
+    extern char *__cxa_demangle(const char *mangled, char *buf, size_t *len, int *status);
+}
+
 char* subprocessCachedArgv[64];
 
 int32_t cachedArgc = 0;
@@ -364,10 +369,19 @@ bool preamble(int argc, char** argv)
                 sectionInfo info = sect.si[stringTableIndex];
                 getStringForIndex(binary, info.size, info.offset, name, buffer, 256);
 
-                if(breakAddress == 0 && !strcmp(breakFunction, buffer))
+                char demangledName[256];
+                memset(demangledName, '\0', 256);
+                char* demangled = __cxa_demangle(buffer, 0, 0, 0);
+                if(demangled != nullptr)
+                {
+                    memcpy(demangledName, demangled, strchr(demangled, '(') - demangled);
+                    free(demangled);
+                }
+                if(breakAddress == 0 && (!strcmp(breakFunction, buffer) || !strcmp(breakFunction, demangledName)))
                 {
                     gConfig.profilerAddress = address;
                 }
+
 
                 if(endAddress == 0 && !strcmp(endFunction, buffer))
                 {
