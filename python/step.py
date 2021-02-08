@@ -55,7 +55,7 @@ def steploop(debugger, unused0, unused1, unused2):
 
       #Eventually we need to compensate for non-runtime loaded dynamic libraries
       if address >= text.GetLoadAddress(target) and address <= text.GetLoadAddress(target) + text.GetByteSize():
-        replay += "{\"address\":\"" + hexAddress + "\",\"opcode\":\"0x" + opcode +"\",\"mnem\":\"" + mnem +"\"},\n"
+        replay += "{\"a\":\"" + hexAddress + "\",\"o\":\"0x" + opcode +"\",\"m\":\"" + mnem.upper() +"\"},\n"
         if len(replay.splitlines()) > 48000:
           dumpToFile(stamp, replay)
           replay = "{\"triple\":\""+ triple +"\",\"size\":" + str(text.GetByteSize()) + ",\"run\":[\n"
