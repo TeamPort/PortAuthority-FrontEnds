@@ -37,38 +37,7 @@ void releaseRegisters(register_buffer** registers)
 
 void spawnProcess(pid_t* pid, const char* executable)
 {
-#ifdef __aarch64__
-    int32_t arg = 0;
-    std::string command;
-    command += "./suspend.sh";
-    while(arg < subprocessCachedArgc)
-    {
-        command += " ";
-        command += subprocessCachedArgv[arg++];
-    }
-
-    FILE* process = popen(command.c_str(), "r");
-
-    char pidStr[6];
-    memset(pidStr, '\0', 6);
-    char* cursor = pidStr;
-
-    int fd = fileno(process);
-    int flags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-
-    ssize_t bytes = 0;
-    while(bytes >= 0)
-    {
-        usleep(1000*100);
-        bytes = read(fd, cursor, 1);
-        cursor++;
-    }
-
-    *pid = atoi(pidStr);
-#else
     posix_spawn(pid, executable, NULL, NULL, subprocessCachedArgv, NULL);
-#endif
 }
 
 long setBreakInstruction(pid_t pid, uint64_t address)
