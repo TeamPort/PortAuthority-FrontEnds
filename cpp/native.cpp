@@ -110,6 +110,55 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
 
             ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
             waitpid(pid, &status, WSTOPPED);
+
+            ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
+            const uint64_t address = registers.rip;
+
+            int32_t count = gConfig.perSample;
+            uint8_t instructions[sizeof(long)];
+            while(address < configuration.moduleBound && count)
+            {
+                uint8_t byte = 0;
+                bool found = false;
+                int32_t iterations = 1;
+                while(!found)
+                {
+                    byte = 0;
+                    long data = ptrace(PTRACE_PEEKDATA, pid, address - sizeof(long)*iterations, nullptr);
+                    memcpy(instructions, &data, sizeof(long));
+                    while(!found && byte < sizeof(long))
+                    {
+                        found = instructions[byte++] == 0xc3; // ret
+                    }
+
+                    if(!found)
+                    {
+                        iterations++;
+                    }
+                }
+
+                uint64_t disassembleAddress = address - sizeof(long)*iterations + byte;
+                int64_t diff = std::min(address - disassembleAddress, (uint64_t)64);
+                disassembleAddress = address - diff;
+//                while(diff >= 0)
+                {
+                    uint64_t value = ptrace(PTRACE_PEEKDATA, pid, disassembleAddress, nullptr);
+
+                    const int32_t size = 16;
+                    char mnem[size];
+                    uint8_t byte = disassemble(mnem, size, value, machine);
+                    disassembleAddress += byte;
+                    diff = address-disassembleAddress;
+
+                    long ndx = arch->find(mnem);
+                    if(ndx != -1)
+                    {
+                        count--;
+                        outputInstruction(instructionAddress, bswap_32(value), mnem);
+                    }
+                }
+                count = 0;
+            }
         }
     }
     else

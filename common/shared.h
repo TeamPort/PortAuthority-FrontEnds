@@ -37,6 +37,7 @@ struct config
     uint64_t moduleBound = 0;
     uint64_t profilerAddress = 0;
     uint64_t exitAddress = 0;
+    float perSample = 0.0f; // instructions
 };
 
 config gConfig;
@@ -516,6 +517,11 @@ int8_t disassemble(char* mnem, int32_t size, uint64_t value, int machine)
         {
             mnem[chr++] = c;
             c = disasm[chr];
+            if(chr == size)
+            {
+                mnem[size-1] = '\0';
+                break;
+            }
         }
     }
 
