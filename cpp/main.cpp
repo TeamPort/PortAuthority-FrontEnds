@@ -13,7 +13,7 @@
 #include "../common/shared.h"
 
 #ifndef __aarch64__
-#define SAMPLE_INTERVAL_IN_MICROSECONDS 2
+#define SAMPLE_INTERVAL_IN_MICROSECONDS 8
 #else
 #define SAMPLE_INTERVAL_IN_MICROSECONDS 4
 #endif

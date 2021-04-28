@@ -69,6 +69,8 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
     const int32_t INSTRUCTION_LENGTH_MAX = 7;
     uint8_t instructions[INSTRUCTION_LENGTH_MAX];
 
+    int32_t added = 0;
+    int32_t total = 0;
     uint64_t next = 0;
     bool fromBranch = false;
     uint32_t instructionCount = 0;
@@ -118,6 +120,7 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
             uint8_t instructions[sizeof(long)];
             while(address < configuration.moduleBound && count)
             {
+                total++;
                 uint8_t byte = 0;
                 bool found = false;
                 int32_t iterations = 1;
@@ -138,9 +141,8 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                 }
 
                 uint64_t disassembleAddress = address - sizeof(long)*iterations + byte;
-                int64_t diff = std::min(address - disassembleAddress, (uint64_t)64);
-                disassembleAddress = address - diff;
-//                while(diff >= 0)
+                int64_t diff = address - disassembleAddress;
+                while(diff >= 0)
                 {
                     uint64_t value = ptrace(PTRACE_PEEKDATA, pid, disassembleAddress, nullptr);
 
@@ -153,6 +155,7 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                     long ndx = arch->find(mnem);
                     if(ndx != -1)
                     {
+                        added++;
                         count--;
                         outputInstruction(instructionAddress, bswap_32(value), mnem);
                     }
@@ -160,6 +163,7 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                 count = 0;
             }
         }
+        printf("%.2f %.2f %d\n", total*gConfig.perSample, gConfig.perSample, added);
     }
     else
     {
