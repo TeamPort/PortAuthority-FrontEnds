@@ -95,11 +95,6 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                 break;
             }
 
-            if(instructionAddress < configuration.moduleBound)
-            {
-                instructionCount++;
-            }
-
             system_clock::time_point start = system_clock::now();
             system_clock::time_point sync = start + nanoseconds(SAMPLE_INTERVAL_IN_MICROSECONDS*1000);
             ptrace(PTRACE_CONT, pid, NULL, NULL);
@@ -122,7 +117,11 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
             while(address && count > 0)
             {
                 total++;
-                if(total % 1000 == 0) printf("Processing...\n");
+                if(total % 1000 == 0)
+                {
+                    const char* update = "\e[93mProcessing...\e[0m\n";
+                    fwrite(update, strlen(update), 1, stderr);
+                }
 
                 uint8_t byte = 0;
                 bool found = false;
@@ -156,20 +155,19 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                     const int32_t size = 16;
                     char mnem[size];
                     uint8_t byte = disassemble(mnem, size, value, machine);
-                    disassembleAddress += byte;
-                    diff = address-disassembleAddress;
-
                     long ndx = arch->find(mnem);
                     if(ndx != -1)
                     {
-                        if(instructionAddress < configuration.moduleBound)
+                        if(disassembleAddress < configuration.moduleBound)
                         {
                             instructionCount++;
                         }
-                        instructionCount++;
                         count--;
-                        outputInstruction(instructionAddress, bswap_32(value), mnem);
+                        outputInstruction(disassembleAddress, bswap_32(value), mnem);
                     }
+
+                    disassembleAddress += byte;
+                    diff = address-disassembleAddress;
                 }
 
                 const int32_t MAX_DISTANCE = 256;
