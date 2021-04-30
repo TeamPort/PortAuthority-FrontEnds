@@ -69,7 +69,6 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
     const int32_t INSTRUCTION_LENGTH_MAX = 7;
     uint8_t instructions[INSTRUCTION_LENGTH_MAX];
 
-    int32_t added = 0;
     int32_t total = 0;
     uint64_t next = 0;
     bool fromBranch = false;
@@ -114,17 +113,23 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
             waitpid(pid, &status, WSTOPPED);
 
             ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
-            const uint64_t address = registers.rip;
+
+            uint64_t stack = registers.rsp;
+            uint64_t address = registers.rip;
 
             int32_t count = gConfig.perSample;
             uint8_t instructions[sizeof(long)];
-            while(address < configuration.moduleBound && count)
+            while(address && count > 0)
             {
                 total++;
+                if(total % 1000 == 0) printf("Processing...\n");
+
                 uint8_t byte = 0;
                 bool found = false;
                 int32_t iterations = 1;
-                while(!found)
+
+                const int32_t MAX_ITERATIONS = 256;
+                while(!found && iterations < MAX_ITERATIONS)
                 {
                     byte = 0;
                     long data = ptrace(PTRACE_PEEKDATA, pid, address - sizeof(long)*iterations, nullptr);
@@ -140,9 +145,11 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                     }
                 }
 
+                if(iterations > MAX_ITERATIONS) break;
+
                 uint64_t disassembleAddress = address - sizeof(long)*iterations + byte;
                 int64_t diff = address - disassembleAddress;
-                while(diff >= 0)
+                while(count > 0 && diff >= 0)
                 {
                     uint64_t value = ptrace(PTRACE_PEEKDATA, pid, disassembleAddress, nullptr);
 
@@ -155,15 +162,37 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                     long ndx = arch->find(mnem);
                     if(ndx != -1)
                     {
-                        added++;
+                        if(instructionAddress < configuration.moduleBound)
+                        {
+                            instructionCount++;
+                        }
+                        instructionCount++;
                         count--;
                         outputInstruction(instructionAddress, bswap_32(value), mnem);
                     }
                 }
-                count = 0;
+
+                const int32_t MAX_DISTANCE = 256;
+
+                uint64_t current = stack;
+                while(count > 0 && (current-stack) < MAX_DISTANCE)
+                {
+                    uint64_t value = ptrace(PTRACE_PEEKDATA, pid, current, nullptr);
+                    if(value >= stack)
+                    {
+                        stack = value;
+                        address = ptrace(PTRACE_PEEKDATA, pid, current + sizeof(uint64_t), nullptr);
+                        break;
+                    }
+                    current += sizeof(uint64_t);
+                }
+
+                if((current-stack) >= MAX_DISTANCE)
+                {
+                    break;
+                }
             }
         }
-        printf("%.2f %.2f %d\n", total*gConfig.perSample, gConfig.perSample, added);
     }
     else
     {
