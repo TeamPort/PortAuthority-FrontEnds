@@ -46,6 +46,7 @@ int main(int argc, char** argv)
 #endif
         gConfig.perSample = (mips*SAMPLE_INTERVAL_IN_MICROSECONDS)/CYCLES_PER_INSTRUCTION;
         uint64_t instructions = profileNative(binaryPath, gConfig, (normal*)instructionSet);
+        printf("%lu\n", instructions);
     }
 
     cleanup();

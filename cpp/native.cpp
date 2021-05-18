@@ -79,6 +79,17 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
         ptrace(PTRACE_SEIZE, pid, NULL, NULL);
         ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
         waitpid(pid, &status, WSTOPPED);
+
+        long data = setBreakInstruction(pid, configuration.profilerAddress);
+
+        //run to break
+        ptrace(PTRACE_CONT, pid, NULL, NULL);
+        waitpid(pid, &status, WSTOPPED);
+
+        clearBreakInstruction(pid, configuration.profilerAddress, data);
+        ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
+        waitpid(pid, &status, WSTOPPED);
+
         while(WIFSTOPPED(status))
         {
             uint64_t instructionAddress = 0;
@@ -114,20 +125,14 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
 
             int32_t count = gConfig.perSample;
             uint8_t instructions[sizeof(long)];
+
             while(address && count > 0)
             {
-                total++;
-                if(total % 1000 == 0)
-                {
-                    const char* update = "\e[93mProcessing...\e[0m\n";
-                    fwrite(update, strlen(update), 1, stderr);
-                }
-
                 uint8_t byte = 0;
                 bool found = false;
                 int32_t iterations = 1;
 
-                const int32_t MAX_ITERATIONS = 256;
+                const int32_t MAX_ITERATIONS = 8192;
                 while(!found && iterations < MAX_ITERATIONS)
                 {
                     byte = 0;
@@ -146,6 +151,7 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
 
                 if(iterations > MAX_ITERATIONS) break;
 
+                bool hit = false;
                 uint64_t disassembleAddress = address - sizeof(long)*iterations + byte;
                 int64_t diff = address - disassembleAddress;
                 while(count > 0 && diff >= 0)
@@ -160,17 +166,17 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                     {
                         if(disassembleAddress < configuration.moduleBound)
                         {
-                            instructionCount++;
+                            outputInstruction(disassembleAddress, bswap_32(value), mnem);
+                            hit = true;
                         }
                         count--;
-                        outputInstruction(disassembleAddress, bswap_32(value), mnem);
                     }
 
                     disassembleAddress += byte;
                     diff = address-disassembleAddress;
                 }
 
-                const int32_t MAX_DISTANCE = 256;
+                const int32_t MAX_DISTANCE = 65536;
 
                 uint64_t current = stack;
                 while(count > 0 && (current-stack) < MAX_DISTANCE)
@@ -183,6 +189,11 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                         break;
                     }
                     current += sizeof(uint64_t);
+                }
+
+                if(hit)
+                {
+                    instructionCount += configuration.perSample;
                 }
 
                 if((current-stack) >= MAX_DISTANCE)
