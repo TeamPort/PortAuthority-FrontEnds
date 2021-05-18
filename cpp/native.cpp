@@ -118,10 +118,19 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
             ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
             waitpid(pid, &status, WSTOPPED);
 
+#if defined( __aarch64__)
+            ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
+#else
             ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
+#endif
 
+#if defined( __aarch64__)
+            uint64_t stack = registers.sp;
+            uint64_t address = registers.pc;
+#else
             uint64_t stack = registers.rsp;
             uint64_t address = registers.rip;
+#endif
 
             int32_t count = gConfig.perSample;
             uint8_t instructions[sizeof(long)];
