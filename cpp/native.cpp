@@ -4,7 +4,7 @@
 #include <sys/ptrace.h>
 #include <sys/signal.h>
 #include <byteswap.h>
-
+#include <x86intrin.h>
 #include "native.h"
 
 #include <chrono>
@@ -14,6 +14,12 @@ using namespace std::chrono;
 #define BREAK 0xD4200000 //aarch64 breakpoint instruction
 #else
 #define BREAK 0xCC //x86 breakpoint instruction
+#endif
+
+#ifndef __aarch64__
+        const float CYCLES_PER_INSTRUCTION = 2.8f;
+#else
+        const float CYCLES_PER_INSTRUCTION = 1.2f;
 #endif
 
 uint32_t profileNative(const char* executable, config configuration, normal* arch)
@@ -108,22 +114,30 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
 
             system_clock::time_point start = system_clock::now();
             system_clock::time_point sync = start + nanoseconds(SAMPLE_INTERVAL_IN_MICROSECONDS*1000);
+            _mm_lfence();
+            unsigned long long first = __rdtsc();
+            _mm_lfence();
             ptrace(PTRACE_CONT, pid, NULL, NULL);
             system_clock::time_point now = system_clock::now();
             while(now < sync)
             {
                 now = system_clock::now();
             }
+            _mm_lfence();
+            unsigned long long second = __rdtsc();
+            _mm_lfence();
 
             ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
             waitpid(pid, &status, WSTOPPED);
+
+            float inSample = (second-first)/CYCLES_PER_INSTRUCTION;
 
             ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
 
             uint64_t stack = registers.rsp;
             uint64_t address = registers.rip;
 
-            int32_t count = gConfig.perSample;
+            int32_t count = inSample;
             uint8_t instructions[sizeof(long)];
 
             while(address && count > 0)
@@ -193,7 +207,7 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
 
                 if(hit)
                 {
-                    instructionCount += configuration.perSample;
+                    instructionCount += inSample;
                 }
 
                 if((current-stack) >= MAX_DISTANCE)
