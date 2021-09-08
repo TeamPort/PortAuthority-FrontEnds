@@ -132,10 +132,19 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
 
             float inSample = (second-first)/CYCLES_PER_INSTRUCTION;
 
+#if defined( __aarch64__)
+            ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
+#else
             ptrace(PTRACE_GETREGS, pid, NULL, registerBuffer);
+#endif
 
+#if defined( __aarch64__)
+            uint64_t stack = registers.sp;
+            uint64_t address = registers.pc;
+#else
             uint64_t stack = registers.rsp;
             uint64_t address = registers.rip;
+#endif
 
             int32_t count = inSample;
             uint8_t instructions[sizeof(long)];
