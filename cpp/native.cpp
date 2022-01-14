@@ -4,7 +4,9 @@
 #include <sys/ptrace.h>
 #include <sys/signal.h>
 #include <byteswap.h>
+#ifndef __aarch64__
 #include <x86intrin.h>
+#endif
 #include "native.h"
 
 #include <chrono>
@@ -21,6 +23,10 @@ using namespace std::chrono;
 #else
         const float CYCLES_PER_INSTRUCTION = 1.2f;
 #endif
+
+#include <set>
+uint64_t gAccessed = 0;
+std::set<uint64_t> gMemoryAccesses;
 
 uint32_t profileNative(const char* executable, config configuration, normal* arch)
 {
@@ -114,23 +120,34 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
 
             system_clock::time_point start = system_clock::now();
             system_clock::time_point sync = start + nanoseconds(SAMPLE_INTERVAL_IN_MICROSECONDS*1000);
+
+#ifndef __aarch64__
             _mm_lfence();
             unsigned long long first = __rdtsc();
             _mm_lfence();
+#endif
+
             ptrace(PTRACE_CONT, pid, NULL, NULL);
             system_clock::time_point now = system_clock::now();
             while(now < sync)
             {
                 now = system_clock::now();
             }
+
+#ifndef __aarch64__
             _mm_lfence();
             unsigned long long second = __rdtsc();
             _mm_lfence();
+#endif
 
             ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
             waitpid(pid, &status, WSTOPPED);
 
+#ifndef __aarch64__
             float inSample = (second-first)/CYCLES_PER_INSTRUCTION;
+#else
+            float inSample = gConfig.perSample;
+#endif
 
 #if defined( __aarch64__)
             ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, registerBuffer);
@@ -354,6 +371,45 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                 long ndx = arch->find(mnem);
                 if(ndx != -1)
                 {
+                    if(!strcmp("STRB", mnem) || !strcmp("STRH", mnem) || !strcmp("STR", mnem))
+                    {
+                        int increment = 1;
+                        uint64_t memoryAccess = registers.regs[(value >> 5) & 0x1F];
+                        if(!strcmp("STR", mnem))
+                        {
+                            memoryAccess += registers.regs[(value >> 16) & 0x1F];
+                            increment = 4;
+                        }
+                        else if(!strcmp("STRH", mnem))
+                        {
+                            increment = 2;
+                        }
+
+                        if(gMemoryAccesses.insert(memoryAccess).second)
+                        {
+                            gAccessed += increment;
+                        }
+                    }
+                    if(!strcmp("STURB", mnem) || !strcmp("STURH", mnem) || !strcmp("STUR", mnem))
+                    {
+                        int increment = 1;
+                        uint64_t memoryAccess = registers.regs[(value >> 4) & 0x1F];
+                        memoryAccess += (value >> 12) & 0x1FF;
+                        if(!strcmp("STUR", mnem))
+                        {
+                            increment = 4;
+                        }
+                        else if(!strcmp("STURH", mnem))
+                        {
+                            increment = 2;
+                        }
+
+                        if(gMemoryAccesses.insert(memoryAccess).second)
+                        {
+                            gAccessed += increment;
+                        }
+                    }
+
                     outputInstruction(instructionAddress, bswap_32(value), mnem);
 
                     const isa_instr* instruction = arch->get_instr(ndx);

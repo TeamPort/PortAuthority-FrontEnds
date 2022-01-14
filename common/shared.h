@@ -64,7 +64,11 @@ void writeHeader(uint64_t textSize)
 {
     char buffer[SCRATCH_BUFFER_SIZE];
     memset(buffer, '\0', SCRATCH_BUFFER_SIZE);
+#ifdef __aarch64__
+    sprintf(buffer, "{\"triple\":\"aarch64-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
+#else
     sprintf(buffer, "{\"triple\":\"x86_64-pc-linux-gnu\",\"size\":%ld,\"run\":[\n", textSize);
+#endif
     gOutput.append(buffer);
 }
 
