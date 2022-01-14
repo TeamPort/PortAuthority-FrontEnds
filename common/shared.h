@@ -374,8 +374,8 @@ bool preamble(int argc, char** argv)
                 sectionInfo info = sect.si[stringTableIndex];
                 getStringForIndex(binary, info.size, info.offset, name, buffer, 256);
 
-                char demangledName[256];
-                memset(demangledName, '\0', 256);
+                char demangledName[512];
+                memset(demangledName, '\0', 512);
                 char* demangled = __cxa_demangle(buffer, 0, 0, 0);
                 if(demangled != nullptr)
                 {
