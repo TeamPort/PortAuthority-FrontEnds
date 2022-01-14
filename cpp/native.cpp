@@ -371,6 +371,7 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                 long ndx = arch->find(mnem);
                 if(ndx != -1)
                 {
+#ifdef __aarch64__
                     if(!strcmp("STRB", mnem) || !strcmp("STRH", mnem) || !strcmp("STR", mnem))
                     {
                         int increment = 1;
@@ -409,6 +410,7 @@ uint32_t profileNative(const char* executable, config configuration, normal* arc
                             gAccessed += increment;
                         }
                     }
+#endif
 
                     outputInstruction(instructionAddress, bswap_32(value), mnem);
 
